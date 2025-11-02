@@ -1,24 +1,37 @@
+bl_info = {
+    "name": "Darkroom",
+    "author": "Gemini",
+    "version": (1, 0),
+    "blender": (4, 2, 0),
+    "location": "View3D > UI > Darkroom",
+    "description": "A digital darkroom for developing EXR images",
+    "category": "Compositing",
+}
+
 _needs_reload = "bpy" in locals()
 
 import bpy
 from . import (
-    core,
+    properties,
+    operators,
+    ui,
 )
 
 if _needs_reload:
     import importlib
-
-    core = importlib.reload(core)
+    properties = importlib.reload(properties)
+    operators = importlib.reload(operators)
+    ui = importlib.reload(ui)
     print("Add-on Reloaded")
 
 
 def register():
-    bpy.utils.register_class(core.object_move.ObjectMoveX)
-    bpy.types.VIEW3D_MT_object.append(
-        core.object_move.menu_func
-    )  # Adds the new operator to an existing menu.
+    properties.register()
+    operators.register()
+    ui.register()
 
 
 def unregister():
-    bpy.utils.unregister_class(core.object_move.ObjectMoveX)
-    bpy.types.VIEW3D_MT_object.remove(core.object_move.menu_func)
+    ui.unregister()
+    operators.unregister()
+    properties.unregister()
