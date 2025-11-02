@@ -1,0 +1,40 @@
+[project]
+name = "Darkroom Blend"
+version = "0.1.0"
+description = "Develop your digital photos in Blender"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fake-bpy-module>=20251003",
+]
+
+[dependency-groups]
+dev = [
+    "python-lsp-server>=1.13.1",
+    "ruff>=0.14.0",
+]
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C", "I"]
+ignore = [
+    # Info: Use `isinstance()` instead of comparing types directly.
+    # Why disable? Changes code logic, in rare cases we want to compare exact types.
+    "E721",
+    # Info: Fix bare except.
+    # Why disable? Disruptive, leave our exceptions alone.
+    "E722",
+    # Info: Fix module level import not at top of file.
+    # Why disable? Re-ordering imports is disruptive and breaks some scripts
+    # that need to check if a module has already been loaded in the case of reloading.
+    "E402",
+    # Info: Fix various deprecated code (via lib2to3)
+    # Why disable? Does nothing besides incorrectly adding a duplicate import,
+    # could be reported as a bug except this is likely to be removed soon, see:
+    # https://github.com/python/cpython/issues/84540.
+    "W690",
+]
