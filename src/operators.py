@@ -61,6 +61,14 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
         file_output_node = tree.nodes.new(type='CompositorNodeOutputFile')
         file_output_node.location = 600, 0
 
+        darkroom = context.scene.darkroom
+        if darkroom.files and darkroom.active_file_index >= 0:
+            file_item = darkroom.files[darkroom.active_file_index]
+            filepath = os.path.join(darkroom.directory, file_item.name)
+            image = bpy.data.images.get(os.path.basename(filepath))
+            if image:
+                image_node.image = image
+
         # Link nodes
         tree.links.new(image_node.outputs[0], exposure_node.inputs[0])
         tree.links.new(exposure_node.outputs[0], rgb_curves_node.inputs['Image'])
