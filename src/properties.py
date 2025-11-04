@@ -1,7 +1,11 @@
 import bpy
 
 def update_exposure(self, context):
-    context.scene.view_settings.exposure = self.exposure
+    scene = context.scene
+    if scene.use_nodes:
+        exposure_node = scene.node_tree.nodes.get("Darkroom Exposure")
+        if exposure_node:
+            exposure_node.inputs['Exposure'].default_value = self.exposure
 
 def update_contrast(self, context):
     scene = context.scene

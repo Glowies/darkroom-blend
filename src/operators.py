@@ -41,6 +41,10 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
         image_node = tree.nodes.new(type='CompositorNodeImage')
         image_node.location = -300, 0
 
+        exposure_node = tree.nodes.new(type='CompositorNodeExposure')
+        exposure_node.name = "Darkroom Exposure"
+        exposure_node.location = -150, 0
+
         rgb_curves_node = tree.nodes.new(type='CompositorNodeCurveRGB')
         rgb_curves_node.location = 0, 0
         rgb_curves_node.mapping.tone = 'FILMLIKE'
@@ -58,7 +62,8 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
         file_output_node.location = 600, 0
 
         # Link nodes
-        tree.links.new(image_node.outputs[0], rgb_curves_node.inputs['Image'])
+        tree.links.new(image_node.outputs[0], exposure_node.inputs[0])
+        tree.links.new(exposure_node.outputs[0], rgb_curves_node.inputs['Image'])
         tree.links.new(rgb_curves_node.outputs['Image'], bright_contrast_node.inputs[0])
         tree.links.new(bright_contrast_node.outputs[0], viewer_node.inputs[0])
         tree.links.new(bright_contrast_node.outputs[0], file_output_node.inputs[0])
