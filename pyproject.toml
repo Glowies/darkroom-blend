@@ -1,5 +1,5 @@
 [project]
-name = "Darkroom Blend"
+name = "darkroom_blend"
 version = "0.1.0"
 description = "Develop your digital photos in Blender"
 readme = "README.md"

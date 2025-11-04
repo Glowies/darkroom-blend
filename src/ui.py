@@ -36,6 +36,7 @@ class DARKROOM_PT_panel(bpy.types.Panel):
                 col.prop(darkroom, "contrast")
                 
                 layout.operator("darkroom.render_image")
+                layout.operator("darkroom.reset_graph")
 
 
 def register():
