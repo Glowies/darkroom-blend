@@ -137,14 +137,43 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
         bpy.ops.render.render()
         return {'FINISHED'}
 
+class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
+    """Toggle the file browser in the compositor"""
+    bl_idname = "darkroom.toggle_file_browser"
+    bl_label = "Toggle File Browser"
+
+    def execute(self, context):
+        screen = context.screen
+        node_editor_area = None
+        file_browser_area = None
+
+        for area in screen.areas:
+            if area.type == 'NODE_EDITOR':
+                node_editor_area = area
+            elif area.type == 'FILE_BROWSER':
+                file_browser_area = area
+
+        if file_browser_area:
+            # Override the context to close the file browser area
+            with context.temp_override(area=file_browser_area):
+                bpy.ops.screen.area_close()
+        else:
+            # Split the area and set the new area to be a file browser
+            bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
+            context.screen.areas[-1].type = 'FILE_BROWSER'
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(DARKROOM_OT_open_folder)
     bpy.utils.register_class(DARKROOM_OT_load_image)
     bpy.utils.register_class(DARKROOM_OT_render_image)
     bpy.utils.register_class(DARKROOM_OT_reset_graph)
+    bpy.utils.register_class(DARKROOM_OT_toggle_file_browser)
 
 def unregister():
     bpy.utils.unregister_class(DARKROOM_OT_render_image)
     bpy.utils.unregister_class(DARKROOM_OT_load_image)
     bpy.utils.unregister_class(DARKROOM_OT_open_folder)
     bpy.utils.unregister_class(DARKROOM_OT_reset_graph)
+    bpy.utils.unregister_class(DARKROOM_OT_toggle_file_browser)

@@ -22,6 +22,7 @@ class DARKROOM_PT_panel(bpy.types.Panel):
         scene = context.scene
         darkroom = scene.darkroom
 
+        layout.operator("darkroom.toggle_file_browser")
         layout.operator("darkroom.open_folder")
 
         if darkroom.directory:
