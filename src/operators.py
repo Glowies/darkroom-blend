@@ -160,7 +160,10 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
         else:
             # Split the area and set the new area to be a file browser
             bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
-            context.screen.areas[-1].type = 'FILE_BROWSER'
+            new_area = screen.areas[-1]
+            new_area.type = 'FILE_BROWSER'
+            new_area.spaces[0].params.display_type = 'THUMBNAIL'
+            new_area.spaces[0].params.display_size_discrete = 'SMALL'
 
         return {'FINISHED'}
 
