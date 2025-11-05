@@ -142,7 +142,37 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
     bl_label = "Render Image"
 
     def execute(self, context):
+        scene = context.scene
+        darkroom = scene.darkroom
+        tree = scene.node_tree
+
+        if not tree or not darkroom.output_directory:
+            self.report({'ERROR'}, "Output directory not set")
+            return {'CANCELLED'}
+
+        image_node = tree.nodes.get("Darkroom Input Image")
+        output_node = None
+        for node in tree.nodes:
+            if node.type == 'OUTPUT_FILE':
+                output_node = node
+                break
+        
+        if not image_node or not image_node.image or not output_node:
+            self.report({'ERROR'}, "Required nodes not found in compositor")
+            return {'CANCELLED'}
+
+        output_node.base_path = darkroom.output_directory
+        
+        input_filename = os.path.splitext(image_node.image.name)[0]
+        output_filename = f"{input_filename}.png"
+        output_node.file_slots[0].path = output_filename
+
         bpy.ops.render.render()
+
+        output_path = os.path.join(darkroom.output_directory, output_filename)
+        self.report({'INFO'}, f"Image rendered to: {output_path}")
+        print(f"Image rendered to: {output_path}")
+
         return {'FINISHED'}
 
 class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
