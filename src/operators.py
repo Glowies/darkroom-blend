@@ -1,9 +1,11 @@
 import bpy
 import os
 from pathlib import Path
+from . import states
 
 prev_relpath = None
 prev_dirpath = None
+filebrowser_state = states.FileBrowserState()
 
 def is_image(path):
     return path.suffix.lower() in {'.exr', '.jpg', '.jpeg', '.png', '.tiff', '.tif'}
@@ -149,6 +151,7 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
     bl_label = "Toggle File Browser"
 
     def execute(self, context):
+        global filebrowser_state
         screen = context.screen
         node_editor_area = None
         file_browser_area = None
@@ -160,6 +163,7 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
                 file_browser_area = area
 
         if file_browser_area:
+            filebrowser_state = states.FileBrowserState(area=file_browser_area)
             # Override the context to close the file browser area
             with context.temp_override(area=file_browser_area):
                 bpy.ops.screen.area_close()
@@ -170,8 +174,7 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
                     bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
                     new_area = screen.areas[-1]
                     new_area.type = 'FILE_BROWSER'
-                    new_area.spaces[0].params.display_type = 'THUMBNAIL'
-                    new_area.spaces[0].params.display_size_discrete = 'SMALL'
+                    filebrowser_state.apply_to_area(new_area)
 
         return {'FINISHED'}
 

@@ -15,6 +15,7 @@ from . import (
     properties,
     operators,
     ui,
+    states,
 )
 
 if _needs_reload:
@@ -22,6 +23,7 @@ if _needs_reload:
     properties = importlib.reload(properties)
     operators = importlib.reload(operators)
     ui = importlib.reload(ui)
+    states = importlib.reload(states)
     print("Add-on Reloaded")
 
 
