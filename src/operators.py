@@ -7,6 +7,14 @@ prev_relpath = None
 prev_dirpath = None
 filebrowser_state = states.FileBrowserState()
 
+def get_or_create_darkroom_node_tree(scene):
+    """Get or create the Darkroom compositing node tree."""
+    if scene.compositing_node_group is None:
+        # Create a new compositing node tree and assign it to the scene
+        new_tree = bpy.data.node_groups.new(name="Darkroom", type='CompositorNodeTree')
+        scene.compositing_node_group = new_tree
+    return scene.compositing_node_group
+
 def is_image(path):
     return path.suffix.lower() in {'.exr', '.jpg', '.jpeg', '.png', '.tiff', '.tif'}
 
@@ -55,9 +63,7 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         
         # Set up compositor
         scene.use_nodes = True
-        tree = scene.node_tree
-        if not tree:
-            tree = scene.node_tree_add()
+        tree = get_or_create_darkroom_node_tree(scene)
 
         # Check if image is already loaded by checking the filepath
         image = bpy.data.images.get(os.path.basename(self.filepath))
@@ -96,9 +102,7 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         scene.use_nodes = True
-        tree = scene.node_tree
-        if not tree:
-            tree = scene.node_tree_add()
+        tree = get_or_create_darkroom_node_tree(scene)
             
         tree.nodes.clear()
 
@@ -144,7 +148,7 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         darkroom = scene.darkroom
-        tree = scene.node_tree
+        tree = get_or_create_darkroom_node_tree(scene)
 
         if not tree or not darkroom.output_directory:
             self.report({'ERROR'}, "Output directory not set")
@@ -204,6 +208,7 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
                     bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
                     new_area = screen.areas[-1]
                     new_area.type = 'FILE_BROWSER'
+                    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
                     filebrowser_state.apply_to_area(new_area)
 
         return {'FINISHED'}

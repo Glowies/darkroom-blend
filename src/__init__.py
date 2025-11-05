@@ -1,13 +1,3 @@
-bl_info = {
-    "name": "Darkroom",
-    "author": "Gemini",
-    "version": (1, 0),
-    "blender": (4, 2, 0),
-    "location": "View3D > UI > Darkroom",
-    "description": "A digital darkroom for developing EXR images",
-    "category": "Compositing",
-}
-
 _needs_reload = "bpy" in locals()
 
 import bpy
