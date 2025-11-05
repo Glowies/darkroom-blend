@@ -1,31 +1,89 @@
 import bpy
 import os
+from pathlib import Path
 
-class DARKROOM_OT_open_folder(bpy.types.Operator):
-    """Open a folder of EXR files"""
-    bl_idname = "darkroom.open_folder"
-    bl_label = "Open EXR Folder"
+prev_relpath = None
+prev_dirpath = None
+
+def is_image(path):
+    return path.suffix.lower() in {'.exr', '.jpg', '.jpeg', '.png', '.tiff', '.tif'}
+
+def callback_filename_change(dummy):
+    """
+    This will be registered as a draw handler on the filebrowser and runs everytime the
+    area gets redrawn. This handles the dynamic loading of the selected media.
+    """
+    global prev_relpath
+    global prev_dirpath
+
+    area = bpy.context.area
+    if area.type != 'FILE_BROWSER':
+        return
+
+    active_file = bpy.context.active_file
+    directory = Path(bpy.path.abspath(area.spaces.active.params.directory.decode("utf-8")))
     
-    directory: bpy.props.StringProperty(subtype="DIR_PATH")
+    active_relpath = active_file.relative_path if active_file else None
+
+    if prev_dirpath != directory:
+        prev_dirpath = directory
+
+    if not active_file:
+        return
+
+    if prev_relpath == active_relpath:
+        return
+
+    active_filepath = directory / active_relpath
+    if is_image(active_filepath):
+        bpy.ops.darkroom.load_image_from_path(filepath=str(active_filepath))
+
+    prev_relpath = active_relpath
+
+
+class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
+    """Load an image from a filepath into the compositor"""
+    bl_idname = "darkroom.load_image_from_path"
+    bl_label = "Load Image From Path"
+
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
         scene = context.scene
-        darkroom = scene.darkroom
         
-        darkroom.files.clear()
-        darkroom.directory = self.directory
+        # Set up compositor
+        scene.use_nodes = True
+        tree = scene.node_tree
+        if not tree:
+            tree = scene.node_tree_add()
 
-        if os.path.isdir(self.directory):
-            for f in os.listdir(self.directory):
-                if f.lower().endswith(".exr"):
-                    new_file = darkroom.files.add()
-                    new_file.name = f
+        # Check if image is already loaded by checking the filepath
+        image = bpy.data.images.get(os.path.basename(self.filepath))
+        if not image:
+            image = bpy.data.images.load(self.filepath)
+            image.name = os.path.basename(self.filepath)
         
+        image.colorspace_settings.name = 'ACEScg'
+
+        # Get the image node
+        image_node = None
+        for node in tree.nodes:
+            if node.type == 'IMAGE' and node.name == "Darkroom Input Image":
+                image_node = node
+                break
+        
+        # If no image node, create the graph
+        if not image_node:
+            bpy.ops.darkroom.reset_graph()
+            for node in tree.nodes:
+                if node.type == 'IMAGE' and node.name == "Darkroom Input Image":
+                    image_node = node
+                    break
+        
+        if image_node:
+            image_node.image = image
+
         return {'FINISHED'}
-
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
 
 
 class DARKROOM_OT_reset_graph(bpy.types.Operator):
@@ -35,10 +93,15 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
+        scene.use_nodes = True
         tree = scene.node_tree
+        if not tree:
+            tree = scene.node_tree_add()
+            
         tree.nodes.clear()
 
         image_node = tree.nodes.new(type='CompositorNodeImage')
+        image_node.name = "Darkroom Input Image"
         image_node.location = -300, 0
 
         exposure_node = tree.nodes.new(type='CompositorNodeExposure')
@@ -61,14 +124,6 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
         file_output_node = tree.nodes.new(type='CompositorNodeOutputFile')
         file_output_node.location = 600, 0
 
-        darkroom = context.scene.darkroom
-        if darkroom.files and darkroom.active_file_index >= 0:
-            file_item = darkroom.files[darkroom.active_file_index]
-            filepath = os.path.join(darkroom.directory, file_item.name)
-            image = bpy.data.images.get(os.path.basename(filepath))
-            if image:
-                image_node.image = image
-
         # Link nodes
         tree.links.new(image_node.outputs[0], exposure_node.inputs[0])
         tree.links.new(exposure_node.outputs[0], rgb_curves_node.inputs['Image'])
@@ -78,55 +133,6 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
-class DARKROOM_OT_load_image(bpy.types.Operator):
-    """Load the selected image into the compositor"""
-    bl_idname = "darkroom.load_image"
-    bl_label = "Load Image"
-
-    def execute(self, context):
-        scene = context.scene
-        darkroom = scene.darkroom
-        
-        if not darkroom.files:
-            return {'CANCELLED'}
-
-        # Get the selected file
-        file_item = darkroom.files[darkroom.active_file_index]
-        filepath = os.path.join(darkroom.directory, file_item.name)
-
-        # Set up compositor
-        scene.use_nodes = True
-        tree = scene.node_tree
-
-        # Check if image is already loaded by checking the filepath
-        image = bpy.data.images.get(os.path.basename(filepath))
-        if not image:
-            image = bpy.data.images.load(filepath)
-            image.name = os.path.basename(filepath)
-        
-        image.colorspace_settings.name = 'ACEScg'
-
-        # Get the image node
-        image_node = None
-        for node in tree.nodes:
-            if node.type == 'IMAGE':
-                image_node = node
-                break
-        
-        # If no image node, create the graph
-        if not image_node:
-            bpy.ops.darkroom.reset_graph()
-            for node in tree.nodes:
-                if node.type == 'IMAGE':
-                    image_node = node
-                    break
-
-        image_node.image = image
-
-        return {'FINISHED'}
-
-        return {'FINISHED'}
 
 class DARKROOM_OT_render_image(bpy.types.Operator):
     """Render the final image"""
@@ -159,24 +165,35 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
                 bpy.ops.screen.area_close()
         else:
             # Split the area and set the new area to be a file browser
-            bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
-            new_area = screen.areas[-1]
-            new_area.type = 'FILE_BROWSER'
-            new_area.spaces[0].params.display_type = 'THUMBNAIL'
-            new_area.spaces[0].params.display_size_discrete = 'SMALL'
+            if node_editor_area:
+                with context.temp_override(area=node_editor_area):
+                    bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
+                    new_area = screen.areas[-1]
+                    new_area.type = 'FILE_BROWSER'
+                    new_area.spaces[0].params.display_type = 'THUMBNAIL'
+                    new_area.spaces[0].params.display_size_discrete = 'SMALL'
 
         return {'FINISHED'}
 
+draw_handlers_fb = []
+
 def register():
-    bpy.utils.register_class(DARKROOM_OT_open_folder)
-    bpy.utils.register_class(DARKROOM_OT_load_image)
+    bpy.utils.register_class(DARKROOM_OT_load_image_from_path)
     bpy.utils.register_class(DARKROOM_OT_render_image)
     bpy.utils.register_class(DARKROOM_OT_reset_graph)
     bpy.utils.register_class(DARKROOM_OT_toggle_file_browser)
+    
+    draw_handlers_fb.append(
+        bpy.types.SpaceFileBrowser.draw_handler_add(
+            callback_filename_change, (None,), "WINDOW", "POST_PIXEL"
+        )
+    )
 
 def unregister():
     bpy.utils.unregister_class(DARKROOM_OT_render_image)
-    bpy.utils.unregister_class(DARKROOM_OT_load_image)
-    bpy.utils.unregister_class(DARKROOM_OT_open_folder)
+    bpy.utils.unregister_class(DARKROOM_OT_load_image_from_path)
     bpy.utils.unregister_class(DARKROOM_OT_reset_graph)
     bpy.utils.unregister_class(DARKROOM_OT_toggle_file_browser)
+
+    for handler in draw_handlers_fb:
+        bpy.types.SpaceFileBrowser.draw_handler_remove(handler, "WINDOW")
