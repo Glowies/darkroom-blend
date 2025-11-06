@@ -11,3 +11,6 @@ wheels/
 
 # macos
 .DS_Store
+
+# blender stuff
+*.blend1

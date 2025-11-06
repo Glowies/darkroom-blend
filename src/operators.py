@@ -1,19 +1,11 @@
 import bpy
 import os
 from pathlib import Path
-from . import states
+from . import states, library
 
 prev_relpath = None
 prev_dirpath = None
 filebrowser_state = states.FileBrowserState()
-
-def get_or_create_darkroom_node_tree(scene):
-    """Get or create the Darkroom compositing node tree."""
-    if scene.compositing_node_group is None:
-        # Create a new compositing node tree and assign it to the scene
-        new_tree = bpy.data.node_groups.new(name="Darkroom", type='CompositorNodeTree')
-        scene.compositing_node_group = new_tree
-    return scene.compositing_node_group
 
 def is_image(path):
     return path.suffix.lower() in {'.exr', '.jpg', '.jpeg', '.png', '.tiff', '.tif'}
@@ -59,11 +51,14 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
-        scene = context.scene
-        
-        # Set up compositor
-        scene.use_nodes = True
-        tree = get_or_create_darkroom_node_tree(scene)
+        tree = bpy.data.node_groups.get("Darkroom")
+        if not tree:
+            bpy.ops.darkroom.reset_graph()
+            tree = bpy.data.node_groups.get("Darkroom")
+
+        if not tree:
+            self.report({'ERROR'}, "Failed to get or create 'Darkroom' node tree.")
+            return {'CANCELLED'}
 
         # Check if image is already loaded by checking the filepath
         image = bpy.data.images.get(os.path.basename(self.filepath))
@@ -74,68 +69,37 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         image.colorspace_settings.name = 'ACEScg'
 
         # Get the image node
-        image_node = None
-        for node in tree.nodes:
-            if node.type == 'IMAGE' and node.name == "Darkroom Input Image":
-                image_node = node
-                break
-        
-        # If no image node, create the graph
-        if not image_node:
-            bpy.ops.darkroom.reset_graph()
-            for node in tree.nodes:
-                if node.type == 'IMAGE' and node.name == "Darkroom Input Image":
-                    image_node = node
-                    break
+        image_node = tree.nodes.get("Darkroom Input Image")
         
         if image_node:
             image_node.image = image
+        else:
+            self.report({'WARNING'}, "'Darkroom Input Image' node not found.")
 
         return {'FINISHED'}
 
 
 class DARKROOM_OT_reset_graph(bpy.types.Operator):
-    """Reset the compositing graph"""
+    """Reset the compositing graph by loading from the data blend file."""
     bl_idname = "darkroom.reset_graph"
     bl_label = "Reset Graph"
 
     def execute(self, context):
         scene = context.scene
-        scene.use_nodes = True
-        tree = get_or_create_darkroom_node_tree(scene)
-            
-        tree.nodes.clear()
+        node_tree_name = "Darkroom"
 
-        image_node = tree.nodes.new(type='CompositorNodeImage')
-        image_node.name = "Darkroom Input Image"
-        image_node.location = -300, 0
+        # Remove existing Darkroom node group if it exists
+        if node_tree_name in bpy.data.node_groups:
+            bpy.data.node_groups.remove(bpy.data.node_groups[node_tree_name])
 
-        exposure_node = tree.nodes.new(type='CompositorNodeExposure')
-        exposure_node.name = "Darkroom Exposure"
-        exposure_node.location = -150, 0
+        new_tree = library.load_darkroom_template()
 
-        rgb_curves_node = tree.nodes.new(type='CompositorNodeCurveRGB')
-        rgb_curves_node.location = 0, 0
-        rgb_curves_node.mapping.tone = 'FILMLIKE'
-        for i in range(4):
-            rgb_curves_node.mapping.curves[i].points.new(0.18, 0.18)
+        if not new_tree:
+            self.report({'ERROR'}, "Failed to load Darkroom Template node group.")
+            return {'CANCELLED'}
 
-        bright_contrast_node = tree.nodes.new(type='CompositorNodeBrightContrast')
-        bright_contrast_node.name = "Darkroom Bright/Contrast"
-        bright_contrast_node.location = 300, 0
-
-        viewer_node = tree.nodes.new(type='CompositorNodeViewer')
-        viewer_node.location = 600, -200
-
-        file_output_node = tree.nodes.new(type='CompositorNodeOutputFile')
-        file_output_node.location = 600, 0
-
-        # Link nodes
-        tree.links.new(image_node.outputs[0], exposure_node.inputs[0])
-        tree.links.new(exposure_node.outputs[0], rgb_curves_node.inputs['Image'])
-        tree.links.new(rgb_curves_node.outputs['Image'], bright_contrast_node.inputs[0])
-        tree.links.new(bright_contrast_node.outputs[0], viewer_node.inputs[0])
-        tree.links.new(bright_contrast_node.outputs[0], file_output_node.inputs[0])
+        # Assign the new tree to the scene
+        scene.compositing_node_group = new_tree
 
         return {'FINISHED'}
 
@@ -146,30 +110,28 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
     bl_label = "Render Image"
 
     def execute(self, context):
-        scene = context.scene
-        darkroom = scene.darkroom
-        tree = get_or_create_darkroom_node_tree(scene)
+        darkroom = context.scene.darkroom
+        tree = bpy.data.node_groups.get("Darkroom")
+        if not tree:
+            bpy.ops.darkroom.reset_graph()
+            tree = bpy.data.node_groups.get("Darkroom")
 
-        if not tree or not darkroom.output_directory:
+        if not darkroom.output_directory:
             self.report({'ERROR'}, "Output directory not set")
             return {'CANCELLED'}
 
         image_node = tree.nodes.get("Darkroom Input Image")
-        output_node = None
-        for node in tree.nodes:
-            if node.type == 'OUTPUT_FILE':
-                output_node = node
-                break
+        output_node = tree.nodes.get("File Output")
         
         if not image_node or not image_node.image or not output_node:
             self.report({'ERROR'}, "Required nodes not found in compositor")
             return {'CANCELLED'}
 
-        output_node.base_path = darkroom.output_directory
+        output_node.directory = darkroom.output_directory
         
         input_filename = os.path.splitext(image_node.image.name)[0]
-        output_filename = f"{input_filename}.png"
-        output_node.file_slots[0].path = output_filename
+        output_filename = f"{input_filename}"
+        output_node.file_name = output_filename
 
         bpy.ops.render.render()
 
