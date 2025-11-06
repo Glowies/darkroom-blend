@@ -150,11 +150,14 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
         global filebrowser_state
         screen = context.screen
         node_editor_area = None
+        image_editor_area = None
         file_browser_area = None
 
         for area in screen.areas:
             if area.type == 'NODE_EDITOR':
                 node_editor_area = area
+            elif area.type == 'IMAGE_EDITOR':
+                image_editor_area = area
             elif area.type == 'FILE_BROWSER':
                 file_browser_area = area
 
@@ -164,9 +167,10 @@ class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
             with context.temp_override(area=file_browser_area):
                 bpy.ops.screen.area_close()
         else:
-            # Split the area and set the new area to be a file browser
-            if node_editor_area:
-                with context.temp_override(area=node_editor_area):
+            # Prioritize splitting the Image Editor if it exists
+            area_to_split = image_editor_area or node_editor_area
+            if area_to_split:
+                with context.temp_override(area=area_to_split):
                     bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
                     new_area = screen.areas[-1]
                     new_area.type = 'FILE_BROWSER'
