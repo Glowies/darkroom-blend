@@ -22,8 +22,6 @@ class DARKROOM_PT_panel(bpy.types.Panel):
         layout.prop(darkroom, "output_directory")
 
         col = layout.column(align=True)
-        col.prop(darkroom, "exposure")
-        col.prop(darkroom, "contrast")
         
         layout.operator("darkroom.render_image")
         layout.operator("darkroom.reset_graph")
