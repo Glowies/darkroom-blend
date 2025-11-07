@@ -11,7 +11,7 @@ def load_darkroom_template():
     if template_name in bpy.data.node_groups:
         return bpy.data.node_groups[template_name]
 
-    with bpy.data.libraries.load(BLEND_FILE_PATH, link=False) as (data_from, data_to):
+    with bpy.data.libraries.load(BLEND_FILE_PATH, link=True) as (data_from, data_to):
         data_to.node_groups = data_from.node_groups
 
     # Find the appended template
