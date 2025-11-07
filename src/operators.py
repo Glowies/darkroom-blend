@@ -51,20 +51,30 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
-        tree = bpy.data.node_groups.get("Darkroom")
-        if not tree:
-            bpy.ops.darkroom.reset_graph()
-            tree = bpy.data.node_groups.get("Darkroom")
+        scene = context.scene
+        filename = os.path.basename(self.filepath)
+        node_group_name = f"Darkroom - {filename}"
+
+        # Check if a node group for this image already exists
+        tree = bpy.data.node_groups.get(node_group_name)
 
         if not tree:
-            self.report({'ERROR'}, "Failed to get or create 'Darkroom' node tree.")
-            return {'CANCELLED'}
+            # If it doesn't exist, create a new one from the template
+            template_tree = library.load_darkroom_template()
+            if not template_tree:
+                self.report({'ERROR'}, "Failed to load Darkroom Template node group.")
+                return {'CANCELLED'}
+            tree = template_tree.copy()
+            tree.name = node_group_name
+        
+        # Assign the tree to the scene's compositing node group
+        scene.compositing_node_group = tree
 
         # Check if image is already loaded by checking the filepath
-        image = bpy.data.images.get(os.path.basename(self.filepath))
+        image = bpy.data.images.get(filename)
         if not image:
             image = bpy.data.images.load(self.filepath)
-            image.name = os.path.basename(self.filepath)
+            image.name = filename
         
         image.colorspace_settings.name = 'ACEScg'
 
@@ -92,17 +102,33 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        node_tree_name = "Darkroom"
+        active_tree = scene.compositing_node_group
 
-        # Remove existing Darkroom node group if it exists
-        if node_tree_name in bpy.data.node_groups:
-            bpy.data.node_groups.remove(bpy.data.node_groups[node_tree_name])
+        if not active_tree or not active_tree.name.startswith("Darkroom"):
+            self.report({'ERROR'}, "No active Darkroom node group to reset.")
+            return {'CANCELLED'}
 
-        new_tree = library.load_darkroom_template()
+        # Store the image and name
+        image_node = active_tree.nodes.get("Darkroom Input Image")
+        image = image_node.image if image_node else None
+        original_name = active_tree.name
 
-        if not new_tree:
+        # Remove the existing node group
+        bpy.data.node_groups.remove(active_tree)
+
+        # Create a new one from the template
+        template_tree = library.load_darkroom_template()
+        if not template_tree:
             self.report({'ERROR'}, "Failed to load Darkroom Template node group.")
             return {'CANCELLED'}
+        new_tree = template_tree.copy()
+
+        # Restore the name and image
+        new_tree.name = original_name
+        if image:
+            new_image_node = new_tree.nodes.get("Darkroom Input Image")
+            if new_image_node:
+                new_image_node.image = image
 
         # Assign the new tree to the scene
         scene.compositing_node_group = new_tree
@@ -117,10 +143,11 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
 
     def execute(self, context):
         darkroom = context.scene.darkroom
-        tree = bpy.data.node_groups.get("Darkroom")
-        if not tree:
-            bpy.ops.darkroom.reset_graph()
-            tree = bpy.data.node_groups.get("Darkroom")
+        tree = context.scene.compositing_node_group
+        
+        if not tree or not tree.name.startswith("Darkroom"):
+            self.report({'ERROR'}, "No active Darkroom node group found.")
+            return {'CANCELLED'}
 
         if not darkroom.output_directory:
             self.report({'ERROR'}, "Output directory not set")
