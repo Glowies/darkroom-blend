@@ -9,6 +9,9 @@ from . import (
     library,
 )
 
+def load_workspace_handler(dummy):
+    library.load_darkroom_workspace()
+
 if _needs_reload:
     import importlib
     properties = importlib.reload(properties)
@@ -23,9 +26,11 @@ def register():
     properties.register()
     operators.register()
     ui.register()
+    bpy.app.handlers.load_post.append(load_workspace_handler)
 
 
 def unregister():
     ui.unregister()
     operators.unregister()
     properties.unregister()
+    bpy.app.handlers.load_post.remove(load_workspace_handler)

@@ -76,6 +76,12 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         else:
             self.report({'WARNING'}, "'Darkroom Input Image' node not found.")
 
+        # Switch Image Editor to Viewer Node
+        for area in context.screen.areas:
+            if area.type == 'IMAGE_EDITOR':
+                if "Viewer Node" in bpy.data.images:
+                    area.spaces.active.image = bpy.data.images["Viewer Node"]
+
         return {'FINISHED'}
 
 
