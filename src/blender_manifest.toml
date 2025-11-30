@@ -25,6 +25,12 @@ license = [
   "SPDX:GPL-3.0-or-later",
 ]
 
+# Bundle 3rd party Python modules.
+# https://docs.blender.org/manual/en/dev/advanced/extensions/python_wheels.html
+wheels = [
+  "./wheels/piexif-1.1.3-py2.py3-none-any.whl",
+]
+
 [permissions]
 files = "Load and save image files"
 # # Optional: required by some licenses.
@@ -37,12 +43,6 @@ files = "Load and save image files"
 # platforms = ["windows-x64", "macos-arm64", "linux-x64"]
 # # Other supported platforms: "windows-arm64", "macos-x64"
 
-# # Optional: bundle 3rd party Python modules.
-# # https://docs.blender.org/manual/en/dev/advanced/extensions/python_wheels.html
-# wheels = [
-#   "./wheels/hexdump-3.3-py3-none-any.whl",
-#   "./wheels/jsmin-3.0.1-py3-none-any.whl",
-# ]
 
 # # Optional: add-ons can list which resources they will require:
 # # * files (for access of any filesystem operations)
