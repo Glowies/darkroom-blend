@@ -1,5 +1,10 @@
 # TODO
 - [ ] Find a cleaner way of getting all available colorspaces and making a dropdown/enum out of them.
+- [ ] Add a few 'default' settings to use when we first make a compositor graph for a picture:
+  - Exposure
+  - Input Color Space
+  - Grading Color Space
+- [ ] Add a way to mark images for 'export' and a 'mass export' button
 
 # Metadata situation
 Dealing with Metadata is a little annoying, partly because of Blender and partly because of OpenImageIO

@@ -85,7 +85,7 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
             image = bpy.data.images.load(self.filepath)
             image.name = filename
 
-        image.colorspace_settings.name = "ACEScg"
+        image.colorspace_settings.name = "ACES 2065-1"
 
         # Get the image node
         image_node = tree.nodes.get("Darkroom Input Image")
