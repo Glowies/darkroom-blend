@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fake-bpy-module>=20251003",
-    "piexif",
 ]
 
 [dependency-groups]
@@ -39,6 +38,3 @@ ignore = [
     # https://github.com/python/cpython/issues/84540.
     "W690",
 ]
-
-[tool.uv.sources]
-piexif = { path = "src/wheels/piexif-1.1.3-py2.py3-none-any.whl" }

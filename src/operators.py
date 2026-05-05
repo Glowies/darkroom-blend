@@ -3,7 +3,6 @@ from pathlib import Path
 
 import bpy
 import OpenImageIO as oiio
-import piexif
 
 from . import library, states
 
@@ -186,6 +185,7 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
         format_to_ext = {
             "JPEG": ".jpg",
             "WEBP": ".webp",
+            "AVIF": ".avif",
         }
         output_ext = format_to_ext.get(file_format)
 
@@ -200,10 +200,6 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
             darkroom.output_directory, f"{output_filename}{output_ext}"
         )
 
-        meta_temp_path = os.path.join(
-            darkroom.output_directory, f"{output_filename}_exif.jpg"
-        )
-
         if not os.path.exists(output_path):
             self.report(
                 {"WARNING"},
@@ -212,40 +208,25 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
             return {"FINISHED"}
 
         # Attempt to transfer EXIF metadata from original image
-
         try:
-            # Make a jpeg copy of the raw image with EXIF data
-            # This is to make sure the image is compatible with piexif
-            # (which only supports JPEG, TIFF, or WEBP)
-            # We crop it to 4x4 to make the process faster.
-            in_buf = oiio.ImageBuf(source_path)
-            crop_roi = oiio.ROI(0, 4, 0, 4)
-            meta_temp = oiio.ImageBufAlgo.crop(in_buf, roi=crop_roi)
-            meta_temp.write(meta_temp_path)
+            in_buf = oiio.ImageBuf(output_path)
+            meta_buf = oiio.ImageBuf(source_path)
+
+            in_buf.merge_metadata(meta_buf, False, "Exif:*")
+            in_buf.merge_metadata(meta_buf, False, "Make")
+            in_buf.merge_metadata(meta_buf, False, "Model")
+            in_buf.merge_metadata(meta_buf, False, "ExposureTime")
+            in_buf.merge_metadata(meta_buf, False, "FNumber")
+            in_buf.specmod().attribute("Compression", "avif:99")
+
+            in_buf.write(output_path)
 
         except Exception as e:
             self.report(
                 {"WARNING"},
-                f"Failed to make temp JPEG copy of original raw image:{e}",
+                f"Failed to transfer metadata using OpenImageIO:{e}",
             )
             return {"FINISHED"}
-
-        try:
-            # Transfer metadata from temp jpeg copy
-            exif_dict = piexif.load(meta_temp_path)
-            exif_bytes = piexif.dump(exif_dict)
-            piexif.insert(exif_bytes, output_path)
-
-            self.report(
-                {"INFO"}, f"Image rendered and metadata transferred to: {output_path}"
-            )
-        except Exception as e:
-            self.report(
-                {"WARNING"}, f"Image rendered, but metadata transfer failed:{e}"
-            )
-        finally:
-            # clean up our mess
-            os.remove(meta_temp_path)
 
         return {"FINISHED"}
 
