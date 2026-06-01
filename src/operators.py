@@ -3,6 +3,7 @@ from pathlib import Path
 
 import bpy
 import OpenImageIO as oiio
+from bpy.app.handlers import persistent
 
 from . import library, states
 
@@ -94,13 +95,43 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         else:
             self.report({"WARNING"}, "'Darkroom Input Image' node not found.")
 
-        # Switch Image Editor to Viewer Node
-        for area in context.screen.areas:
-            if area.type == "IMAGE_EDITOR":
-                if "Viewer Node" in bpy.data.images:
-                    area.spaces.active.image = bpy.data.images["Viewer Node"]
+        # Find Image Editor area
+        image_editor = next(
+            (area for area in context.screen.areas if area.type == "IMAGE_EDITOR"),
+            None,
+        )
+
+        # early exit if there is no image editor
+        if not image_editor:
+            return {"FINISHED"}
+
+        self.init_image_editor(context, image_editor)
 
         return {"FINISHED"}
+
+    def init_image_editor(self, context, image_editor):
+        # Set the Image Editor to show the Viewer Node
+        image_editor.spaces.active.image = bpy.data.images["Viewer Node"]
+
+        # Find the Window region
+        region = next((r for r in image_editor.regions if r.type == "WINDOW"), None)
+
+        ctx_override = context.copy()
+        ctx_override["area"] = image_editor
+        ctx_override["region"] = region
+
+        # Local function to run after the first composite is done
+        def zoom_to_fit_after_composite(scene, depsgraph):
+            # Fit the composited Viewer Node image to the area
+            with bpy.context.temp_override(**ctx_override):
+                bpy.ops.image.view_all(fit_view=True)
+
+            bpy.app.handlers.composite_post.remove(zoom_to_fit_after_composite)
+            return
+
+        # Append the zoom to fit handler for after the first composite pass is done
+        if zoom_to_fit_after_composite not in bpy.app.handlers.composite_post:
+            bpy.app.handlers.composite_post.append(zoom_to_fit_after_composite)
 
 
 class DARKROOM_OT_reset_graph(bpy.types.Operator):
