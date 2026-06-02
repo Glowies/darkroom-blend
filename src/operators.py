@@ -3,13 +3,28 @@ from pathlib import Path
 
 import bpy
 import OpenImageIO as oiio
-from bpy.app.handlers import persistent
 
 from . import library, states
 
 prev_relpath = None
 prev_dirpath = None
 filebrowser_state = states.FileBrowserState()
+
+PURGE_QUEUE_SIZE = 4
+image_purge_queue = []
+
+
+def enqueue_image_and_purge_old(image):
+    if image in image_purge_queue:
+        image_purge_queue.remove(image)
+
+    image_purge_queue.append(image)
+
+    if len(image_purge_queue) <= PURGE_QUEUE_SIZE:
+        return
+
+    image_to_purge = image_purge_queue.pop(0)
+    bpy.data.images.remove(image_to_purge)
 
 
 def is_image(path):
@@ -84,6 +99,9 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         if not image:
             image = bpy.data.images.load(self.filepath)
             image.name = filename
+
+        # Enqueue image in purge queue and purge oldest image
+        enqueue_image_and_purge_old(image)
 
         image.colorspace_settings.name = "Rec.2020 - Linear"
 
