@@ -1,5 +1,4 @@
 # TODO
-- [ ] Mark Compositor node groups as 'Fake User' so that they get saved properly
 - [ ] Embed ICCProfiles in output image
 - [ ] Find a cleaner way of getting all available colorspaces and making a dropdown/enum out of them.
 - [ ] Add a few 'default' settings to use when we first make a compositor graph for a picture:
