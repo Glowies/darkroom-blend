@@ -90,6 +90,9 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
                 return {"CANCELLED"}
             tree = template_tree.copy()
             tree.name = node_group_name
+            # Set the node group to use Fake User so that it does
+            # not get accidentally get purged :P
+            tree.use_fake_user = True
 
         # Assign the tree to the scene's compositing node group
         scene.compositing_node_group = tree
