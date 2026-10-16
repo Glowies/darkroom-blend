@@ -13,3 +13,6 @@ dist/
 
 # blender stuff
 *.blend1
+
+# pixi environments
+.pixi/
