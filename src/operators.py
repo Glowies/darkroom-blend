@@ -39,8 +39,18 @@ def callback_filename_change(dummy):
     global prev_relpath
     global prev_dirpath
 
+    # Only load images while in the Darkroom workspace, so file browsers in other
+    # workspaces behave normally.
+    workspace = bpy.context.workspace
+    if workspace is None or not workspace.name.startswith(library.WORKSPACE_NAME):
+        return
+
     area = bpy.context.area
     if area.type != "FILE_BROWSER":
+        return
+
+    # Skip file dialogs (open, save as, ...), which run on behalf of an operator.
+    if area.spaces.active.active_operator is not None:
         return
 
     active_file = bpy.context.active_file
