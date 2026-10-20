@@ -6,8 +6,12 @@ import bpy
 BLEND_FILE_PATH = os.path.join(os.path.dirname(__file__), "darkroom-data.blend")
 WORKSPACE_NAME = "Darkroom"
 
+
 def load_darkroom_template():
-    """Load all node groups from the data blend file and return the Darkroom Template."""
+    """Load all node groups from the data blend file.
+
+    Returns the Darkroom Template node group.
+    """
     template_name = "Darkroom Template"
 
     # Check if the template is already loaded
@@ -19,12 +23,15 @@ def load_darkroom_template():
 
     # Find the appended template
     loaded_template = bpy.data.node_groups.get(template_name)
-    
+
     return loaded_template
+
 
 def available_colorspaces():
     """Names of the input colorspaces in the OCIO config Blender has loaded."""
-    items = bpy.types.ColorManagedInputColorspaceSettings.bl_rna.properties["name"].enum_items
+    items = bpy.types.ColorManagedInputColorspaceSettings.bl_rna.properties[
+        "name"
+    ].enum_items
     return [item.identifier for item in items]
 
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
-import bpy
+
 from dataclasses import asdict, dataclass
 from typing import Optional
+
+import bpy
+
 
 def is_area_of_type(area: bpy.types.Area, type: str) -> None:
     if area.type != type:
         raise ValueError(f"Area is of type {area.type}. Expected {type}.")
+
 
 class FileBrowserState:
     def __init__(self, area: Optional[bpy.types.Area] = None):
@@ -20,6 +24,7 @@ class FileBrowserState:
     def apply_to_area(self, area: bpy.types.Area) -> None:
         self.space_data.apply_to_area(area)
         self.params.apply_to_area(area)
+
 
 @dataclass
 class SpaceData:
@@ -46,6 +51,7 @@ class SpaceData:
         for key, value in data_dict.items():
             if hasattr(space, key):
                 setattr(space, key, value)
+
 
 @dataclass
 class FbParams:

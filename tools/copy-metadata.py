@@ -4,10 +4,12 @@
 #     "oiio-python>=3.0.10.0.1",
 # ]
 # ///
-import os
 import argparse
+import os
 import tempfile
+
 import OpenImageIO as oiio
+
 
 def sync_metadata_final(target_dir, source_dir):
     source_files = {os.path.splitext(f)[0]: f for f in os.listdir(source_dir)}
@@ -22,7 +24,7 @@ def sync_metadata_final(target_dir, source_dir):
 
         target_path = os.path.join(target_dir, filename)
         source_path = os.path.join(source_dir, source_files[stem])
-        
+
         fd, temp_path = tempfile.mkstemp(suffix=".exr", dir=target_dir)
         os.close(fd)
 
@@ -45,15 +47,15 @@ def sync_metadata_final(target_dir, source_dir):
 
         # 2. Create the new spec starting with the TARGET's layout
         new_spec = oiio.ImageSpec(tgt_spec)
-        
+
         # 3. Wipe and replace the extra metadata from the SOURCE
         new_spec.extra_attribs = src_spec.extra_attribs
-        
+
         # 4. Re-inject the target's structural attributes using attribute()
         # This ensures the 'extra_attribs' copy doesn't overwrite these
         if target_compression:
             new_spec.attribute("compression", target_compression)
-        
+
         # Ensure tile/scanline state is preserved
         new_spec.tile_width = t_w
         new_spec.tile_height = t_h
@@ -63,11 +65,11 @@ def sync_metadata_final(target_dir, source_dir):
         if out:
             # Open the output with our hybrid spec
             out.open(temp_path, new_spec)
-            
+
             # Perform the raw copy
             print(f"Syncing: {filename} (preserving {target_compression} compression)")
             success = out.copy_image(t_input)
-            
+
             out.close()
             t_input.close()
             s_input.close()
@@ -78,6 +80,7 @@ def sync_metadata_final(target_dir, source_dir):
                 print(f"Error during raw copy: {out.geterror()}")
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

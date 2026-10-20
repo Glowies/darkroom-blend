@@ -1,22 +1,26 @@
 _needs_reload = "bpy" in locals()
 
 import bpy
+
 from . import (
-    properties,
-    operators,
-    ui,
-    states,
     library,
+    operators,
     output,
+    properties,
+    states,
+    ui,
 )
+
 
 @bpy.app.handlers.persistent
 def load_workspace_handler(dummy):
     # Persistent so it runs for every file loaded, not only the startup file.
     library.load_darkroom_workspace()
 
+
 if _needs_reload:
     import importlib
+
     properties = importlib.reload(properties)
     operators = importlib.reload(operators)
     ui = importlib.reload(ui)

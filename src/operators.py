@@ -103,7 +103,8 @@ def report_missing_colorspaces(operator, tree):
     if nodes:
         operator.report(
             {"WARNING"},
-            f"Convert Colorspace nodes use colorspaces missing from the current OCIO config: "
+            "Convert Colorspace nodes use colorspaces missing from the current "
+            f"OCIO config: "
             f"{', '.join(nodes)}",
         )
 
@@ -156,7 +157,8 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
             library.apply_input_colorspace(image, "")
             self.report(
                 {"WARNING"},
-                f"Input colorspace '{colorspace}' is not in the current OCIO config, using Auto.",
+                f"Input colorspace '{colorspace}' is not in the current OCIO config, "
+                "using Auto.",
             )
 
         # Get the image node
@@ -172,7 +174,8 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         image_editors = [
             (window, area)
             for window in context.window_manager.windows
-            if window == context.window or window.workspace.name == library.WORKSPACE_NAME
+            if window == context.window
+            or window.workspace.name == library.WORKSPACE_NAME
             for area in window.screen.areas
             if area.type == "IMAGE_EDITOR"
         ]
@@ -208,7 +211,12 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
             # Find the Window region
             region = next((r for r in area.regions if r.type == "WINDOW"), None)
             overrides.append(
-                {"window": window, "screen": window.screen, "area": area, "region": region}
+                {
+                    "window": window,
+                    "screen": window.screen,
+                    "area": area,
+                    "region": region,
+                }
             )
 
         def run_on_editors(operator, **kwargs):
@@ -221,7 +229,9 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
                     pass
 
         # Hide the previous image until the new composite is done
-        run_on_editors(bpy.ops.image.view_pan, offset=(HIDE_PAN_OFFSET, HIDE_PAN_OFFSET))
+        run_on_editors(
+            bpy.ops.image.view_pan, offset=(HIDE_PAN_OFFSET, HIDE_PAN_OFFSET)
+        )
 
         def fit():
             cancel_pending_fit()
@@ -350,7 +360,8 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
         if not output_path or not os.path.exists(output_path):
             self.report(
                 {"WARNING"},
-                f"Could not find rendered image: {output_path}. Will not be able to transfer metadata.",
+                f"Could not find rendered image: {output_path}. "
+                "Will not be able to transfer metadata.",
             )
             return
 

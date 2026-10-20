@@ -81,7 +81,9 @@ def update_outputs(self, context):
 
 
 class DarkroomProperties(bpy.types.PropertyGroup):
-    output_directory: bpy.props.StringProperty(subtype="DIR_PATH", name="Output Directory")
+    output_directory: bpy.props.StringProperty(
+        subtype="DIR_PATH", name="Output Directory"
+    )
     input_colorspace_name: bpy.props.StringProperty(
         name="Input Colorspace Name",
         description="Colorspace assigned to loaded images. Empty for Auto",
@@ -129,9 +131,11 @@ class DarkroomProperties(bpy.types.PropertyGroup):
         update=update_outputs,
     )
 
+
 def register():
     bpy.utils.register_class(DarkroomProperties)
     bpy.types.Scene.darkroom = bpy.props.PointerProperty(type=DarkroomProperties)
+
 
 def unregister():
     del bpy.types.Scene.darkroom

@@ -44,7 +44,10 @@ FORMAT_EXTENSIONS = {
 
 
 def active_output_node(scene):
-    """The File Output node of the scene's compositor node group, if it's a Darkroom one."""
+    """The File Output node of the scene's compositor node group.
+
+    None unless the node group is a Darkroom one.
+    """
     tree = scene.compositing_node_group
     if not tree or not tree.name.startswith("Darkroom"):
         return None
@@ -110,9 +113,10 @@ def sync_item_format(node, item, display, view_settings, is_hdr):
         try:
             set_if_changed(fmt.view_settings, attr, getattr(view_settings, attr))
         except TypeError:
+            label = attr.replace("_", " ").capitalize()
             warnings.append(
-                f"{attr.replace('_', ' ').capitalize()} '{getattr(view_settings, attr)}' "
-                f"is not available for display '{fmt.display_settings.display_device}'"
+                f"{label} '{getattr(view_settings, attr)}' is not available for "
+                f"display '{fmt.display_settings.display_device}'"
             )
     return warnings
 
@@ -132,9 +136,13 @@ def sync_file_output(scene):
         item = items.get(kind)
         if item is None:
             if enabled:
-                warnings.append(f"'{OUTPUT_NODE_NAME}' node has no input named '…{kind}'")
+                warnings.append(
+                    f"'{OUTPUT_NODE_NAME}' node has no input named '…{kind}'"
+                )
             continue
-        for warning in sync_item_format(node, item, display, scene.view_settings, kind == "HDR"):
+        for warning in sync_item_format(
+            node, item, display, scene.view_settings, kind == "HDR"
+        ):
             warnings.append(f"{kind} output: {warning}")
     return warnings
 
