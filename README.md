@@ -22,12 +22,7 @@ The least dirty solution to me was this:
 
 # Gain Map Shenanigans
 ```sh
-avifgainmaputil combine sdr.png hdr.png out.avif \
-  --cicp-base 12/13/6 \
-  --cicp-alternate 9/16/9 \
-  --qgain-map 90 \
-  --depth-gain-map 8 \
-  --downscaling 1
+avifgainmaputil combine sdr.png hdr.png out.avif --cicp-base 12/13/6 --cicp-alternate 9/16/9 --qgain-map 90 --depth-gain-map 8 --downscaling 1
 ```
 
 - sRGB: 1/13/6

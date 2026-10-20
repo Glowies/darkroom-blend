@@ -144,43 +144,51 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         else:
             self.report({"WARNING"}, "'Darkroom Input Image' node not found.")
 
-        # Find Image Editor area
-        image_editor = next(
-            (area for area in context.screen.areas if area.type == "IMAGE_EDITOR"),
-            None,
-        )
+        # Find the Image Editors in this window and in every window showing the
+        # Darkroom workspace, including floating ones (e.g. on a second monitor)
+        image_editors = [
+            (window, area)
+            for window in context.window_manager.windows
+            if window == context.window or window.workspace.name == library.WORKSPACE_NAME
+            for area in window.screen.areas
+            if area.type == "IMAGE_EDITOR"
+        ]
 
         # early exit if there is no image editor
-        if not image_editor:
+        if not image_editors:
             return {"FINISHED"}
 
-        self.init_image_editor(context, image_editor)
+        self.init_image_editors(image_editors)
 
         return {"FINISHED"}
 
-    def init_image_editor(self, context, image_editor):
-        # Set the Image Editor to show the Viewer Node
-        image_editor.spaces.active.image = bpy.data.images["Viewer Node"]
+    def init_image_editors(self, image_editors):
+        overrides = []
+        for window, area in image_editors:
+            # Set the Image Editor to show the Viewer Node
+            area.spaces.active.image = bpy.data.images["Viewer Node"]
 
-        # Find the Window region
-        region = next((r for r in image_editor.regions if r.type == "WINDOW"), None)
-
-        ctx_override = context.copy()
-        ctx_override["area"] = image_editor
-        ctx_override["region"] = region
+            # Find the Window region
+            region = next((r for r in area.regions if r.type == "WINDOW"), None)
+            overrides.append(
+                {"window": window, "screen": window.screen, "area": area, "region": region}
+            )
 
         # Local function to run after the first composite is done
         def zoom_to_fit_after_composite(scene, depsgraph):
-            # Fit the composited Viewer Node image to the area
-            with bpy.context.temp_override(**ctx_override):
-                bpy.ops.image.view_all(fit_view=True)
-
             bpy.app.handlers.composite_post.remove(zoom_to_fit_after_composite)
-            return
+
+            # Fit the composited Viewer Node image to each area
+            for override in overrides:
+                try:
+                    with bpy.context.temp_override(**override):
+                        bpy.ops.image.view_all(fit_view=True)
+                except (ReferenceError, RuntimeError, TypeError):
+                    # The window or area was closed before the composite finished
+                    pass
 
         # Append the zoom to fit handler for after the first composite pass is done
-        if zoom_to_fit_after_composite not in bpy.app.handlers.composite_post:
-            bpy.app.handlers.composite_post.append(zoom_to_fit_after_composite)
+        bpy.app.handlers.composite_post.append(zoom_to_fit_after_composite)
 
 
 class DARKROOM_OT_reset_graph(bpy.types.Operator):
