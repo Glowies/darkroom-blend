@@ -19,3 +19,22 @@ The least dirty solution to me was this:
 1. Make a JPEG copy of the original raw image using OpenImageIO. This will contain the EXIF metadata that we want.
 2. Render either a WEBP or JPEG from Blender. These will contain the valid color profile metadata in them.
 3. Use piexif to transfer EXIF data from the JPEG copy to the render.
+
+# Gain Map Shenanigans
+```sh
+avifgainmaputil combine sdr.png hdr.png out.avif \
+  --cicp-base 12/13/6 \
+  --cicp-alternate 9/16/9 \
+  --qgain-map 90 \
+  --depth-gain-map 8 \
+  --downscaling 1
+```
+
+- sRGB: 1/13/6
+- Display P3 SDR: 12/13/6 (P3 gamut, sRGB curve)
+- Rec.2020 PQ HDR: 9/16/9 (BT.2020 gamut, PQ curve, BT.2020 matrix)
+- P3 PQ HDR: 12/16/6
+
+```sh
+ultrahdr_app -m 0  -p hdr_rgba1010102.raw -a 5 -C 2 -t 2 -R 1  -y sdr_rgba8888.raw   -b 3 -c 1  -w 1920 -h 1080  -L 1000  -q 95 -Q 95 -s 1 -M 1  -z out.jpg
+```

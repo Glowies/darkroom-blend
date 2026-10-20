@@ -76,6 +76,16 @@ def callback_filename_change(dummy):
     prev_relpath = active_relpath
 
 
+def report_missing_colorspaces(operator, tree):
+    nodes = library.nodes_with_missing_colorspaces(tree)
+    if nodes:
+        operator.report(
+            {"WARNING"},
+            f"Convert Colorspace nodes use colorspaces missing from the current OCIO config: "
+            f"{', '.join(nodes)}",
+        )
+
+
 class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
     """Load an image from a filepath into the compositor"""
 
@@ -103,6 +113,7 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
             # Set the node group to use Fake User so that it does
             # not get accidentally get purged :P
             tree.use_fake_user = True
+            report_missing_colorspaces(self, tree)
 
         # Assign the tree to the scene's compositing node group
         scene.compositing_node_group = tree
@@ -112,11 +123,18 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         if not image:
             image = bpy.data.images.load(self.filepath)
             image.name = filename
+            image[library.AUTO_COLORSPACE_KEY] = image.colorspace_settings.name
 
         # Enqueue image in purge queue and purge oldest image
         enqueue_image_and_purge_old(image)
 
-        image.colorspace_settings.name = "Rec.2020 - Linear"
+        colorspace = scene.darkroom.input_colorspace_name
+        if not library.apply_input_colorspace(image, colorspace):
+            library.apply_input_colorspace(image, "")
+            self.report(
+                {"WARNING"},
+                f"Input colorspace '{colorspace}' is not in the current OCIO config, using Auto.",
+            )
 
         # Get the image node
         image_node = tree.nodes.get("Darkroom Input Image")
@@ -193,6 +211,7 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
             self.report({"ERROR"}, "Failed to load Darkroom Template node group.")
             return {"CANCELLED"}
         new_tree = template_tree.copy()
+        report_missing_colorspaces(self, new_tree)
 
         # Restore the name and image
         new_tree.name = original_name

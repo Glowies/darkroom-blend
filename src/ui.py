@@ -23,6 +23,8 @@ class DARKROOM_PT_panel(bpy.types.Panel):
 
         layout.operator("darkroom.toggle_file_browser")
 
+        layout.prop(darkroom, "input_colorspace")
+
         layout.prop(darkroom, "output_directory")
 
         row = layout.row()
