@@ -10,7 +10,9 @@ from . import (
     output,
 )
 
+@bpy.app.handlers.persistent
 def load_workspace_handler(dummy):
+    # Persistent so it runs for every file loaded, not only the startup file.
     library.load_darkroom_workspace()
 
 if _needs_reload:
@@ -37,4 +39,5 @@ def unregister():
     ui.unregister()
     operators.unregister()
     properties.unregister()
-    bpy.app.handlers.load_post.remove(load_workspace_handler)
+    if load_workspace_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(load_workspace_handler)
