@@ -13,6 +13,26 @@ filebrowser_state = states.FileBrowserState()
 PURGE_QUEUE_SIZE = 4
 image_purge_queue = []
 
+# Seconds after which a loaded image is shown even if compositing hasn't finished
+COMPOSITE_TIMEOUT = 10.0
+# Image Editor pan offset that moves the previous image far out of view while
+# the next one is compositing
+HIDE_PAN_OFFSET = 1e6
+# (composite_post handler, timer) of the fit waiting for the current composite
+pending_fit = None
+
+
+def cancel_pending_fit():
+    global pending_fit
+    if pending_fit is None:
+        return
+    handler, timer = pending_fit
+    if handler in bpy.app.handlers.composite_post:
+        bpy.app.handlers.composite_post.remove(handler)
+    if bpy.app.timers.is_registered(timer):
+        bpy.app.timers.unregister(timer)
+    pending_fit = None
+
 
 def enqueue_image_and_purge_old(image):
     if image in image_purge_queue:
@@ -163,10 +183,24 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
         return {"FINISHED"}
 
     def init_image_editors(self, image_editors):
+        """Show the new composite in image_editors, already fitted to them.
+
+        The Viewer Node keeps the previous image until compositing is done, so
+        meanwhile the views are panned far away from it. Otherwise either the
+        previous image gets refitted, or the new one first shows up at the
+        previous zoom. The editors must keep showing the Viewer Node, or Blender
+        doesn't run the compositor at all.
+        """
+        global pending_fit
+
+        # A newer image replaces the fit still waiting for the previous one
+        cancel_pending_fit()
+
+        viewer = bpy.data.images["Viewer Node"]
         overrides = []
         for window, area in image_editors:
             # Set the Image Editor to show the Viewer Node
-            area.spaces.active.image = bpy.data.images["Viewer Node"]
+            area.spaces.active.image = viewer
 
             # Find the Window region
             region = next((r for r in area.regions if r.type == "WINDOW"), None)
@@ -174,21 +208,34 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
                 {"window": window, "screen": window.screen, "area": area, "region": region}
             )
 
-        # Local function to run after the first composite is done
-        def zoom_to_fit_after_composite(scene, depsgraph):
-            bpy.app.handlers.composite_post.remove(zoom_to_fit_after_composite)
-
-            # Fit the composited Viewer Node image to each area
+        def run_on_editors(operator, **kwargs):
             for override in overrides:
                 try:
                     with bpy.context.temp_override(**override):
-                        bpy.ops.image.view_all(fit_view=True)
+                        operator(**kwargs)
                 except (ReferenceError, RuntimeError, TypeError):
-                    # The window or area was closed before the composite finished
+                    # The window or area was closed in the meantime
                     pass
 
-        # Append the zoom to fit handler for after the first composite pass is done
-        bpy.app.handlers.composite_post.append(zoom_to_fit_after_composite)
+        # Hide the previous image until the new composite is done
+        run_on_editors(bpy.ops.image.view_pan, offset=(HIDE_PAN_OFFSET, HIDE_PAN_OFFSET))
+
+        def fit():
+            cancel_pending_fit()
+            # Centers the view on the new composite and fits it
+            run_on_editors(bpy.ops.image.view_all, fit_view=True)
+
+        def fit_after_composite(scene, depsgraph):
+            fit()
+
+        def fit_after_timeout():
+            # Don't leave the views panned away if no composite ever finishes
+            fit()
+            return None
+
+        pending_fit = (fit_after_composite, fit_after_timeout)
+        bpy.app.handlers.composite_post.append(fit_after_composite)
+        bpy.app.timers.register(fit_after_timeout, first_interval=COMPOSITE_TIMEOUT)
 
 
 class DARKROOM_OT_reset_graph(bpy.types.Operator):
@@ -377,6 +424,8 @@ def register():
 
 
 def unregister():
+    cancel_pending_fit()
+
     bpy.utils.unregister_class(DARKROOM_OT_render_image)
     bpy.utils.unregister_class(DARKROOM_OT_load_image_from_path)
     bpy.utils.unregister_class(DARKROOM_OT_reset_graph)

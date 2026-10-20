@@ -7,7 +7,6 @@ from . import (
     ui,
     states,
     library,
-    keymap,
 )
 
 def load_workspace_handler(dummy):
@@ -20,7 +19,6 @@ if _needs_reload:
     ui = importlib.reload(ui)
     states = importlib.reload(states)
     library = importlib.reload(library)
-    keymap = importlib.reload(keymap)
     print("Add-on Reloaded")
 
 
@@ -28,7 +26,6 @@ def register():
     properties.register()
     operators.register()
     ui.register()
-    keymap.register()
     bpy.app.handlers.load_post.append(load_workspace_handler)
 
 
@@ -36,5 +33,4 @@ def unregister():
     ui.unregister()
     operators.unregister()
     properties.unregister()
-    keymap.unregister()
     bpy.app.handlers.load_post.remove(load_workspace_handler)

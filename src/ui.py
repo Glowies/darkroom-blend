@@ -32,7 +32,6 @@ class DARKROOM_PT_panel(bpy.types.Panel):
         row.operator("darkroom.render_image")
 
         layout.operator("darkroom.reset_graph")
-        layout.operator("node.backimage_fit", text="Fit Backdrop")
 
 
 def register():
