@@ -7,6 +7,7 @@ from . import (
     ui,
     states,
     library,
+    output,
 )
 
 def load_workspace_handler(dummy):
@@ -19,6 +20,7 @@ if _needs_reload:
     ui = importlib.reload(ui)
     states = importlib.reload(states)
     library = importlib.reload(library)
+    output = importlib.reload(output)
     print("Add-on Reloaded")
 
 
@@ -26,10 +28,12 @@ def register():
     properties.register()
     operators.register()
     ui.register()
+    output.register()
     bpy.app.handlers.load_post.append(load_workspace_handler)
 
 
 def unregister():
+    output.unregister()
     ui.unregister()
     operators.unregister()
     properties.unregister()

@@ -1,5 +1,7 @@
-import bpy
+import functools
 import os
+
+import bpy
 
 BLEND_FILE_PATH = os.path.join(os.path.dirname(__file__), "darkroom-data.blend")
 WORKSPACE_NAME = "Darkroom"
@@ -24,6 +26,49 @@ def available_colorspaces():
     """Names of the input colorspaces in the OCIO config Blender has loaded."""
     items = bpy.types.ColorManagedInputColorspaceSettings.bl_rna.properties["name"].enum_items
     return [item.identifier for item in items]
+
+
+@functools.cache
+def ocio_config():
+    """The OCIO config Blender uses: $OCIO if valid, else Blender's bundled one.
+
+    Needed for the display list, which Blender's RNA only lists for a specific
+    settings instance. Cached, as Blender loads its config once at startup.
+    """
+    import PyOpenColorIO as ocio
+
+    path = os.environ.get("OCIO")
+    if path:
+        try:
+            return ocio.Config.CreateFromFile(path)
+        except ocio.Exception:
+            pass
+    bundled = bpy.utils.system_resource("DATAFILES", path="colormanagement/config.ocio")
+    return ocio.Config.CreateFromFile(bundled)
+
+
+def available_displays():
+    """Names of the displays in the OCIO config Blender has loaded."""
+    return list(ocio_config().getDisplays())
+
+
+def display_ui_name(display):
+    """Name Blender shows for display: it hides the " - Display" suffix of the
+    ACES configs (LibOCIODisplay in Blender's source)."""
+    return display.removesuffix(" - Display")
+
+
+def is_hdr_display(display):
+    """Whether display's colorspace is encoded for HDR (e.g. PQ or HLG)."""
+    config = ocio_config()
+    for view in config.getViews(display):
+        name = config.getDisplayViewColorSpaceName(display, view)
+        if name == "<USE_DISPLAY_NAME>":
+            name = display
+        colorspace = config.getColorSpace(name)
+        if colorspace is not None and not colorspace.isData():
+            return colorspace.getEncoding() == "hdr-video"
+    return False
 
 
 # Custom property on images: the colorspace Blender picked when loading the file,

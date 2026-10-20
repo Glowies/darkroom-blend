@@ -4,13 +4,15 @@ from pathlib import Path
 import bpy
 import OpenImageIO as oiio
 
-from . import library, states
+from . import library, output, states
 
 prev_relpath = None
 prev_dirpath = None
 filebrowser_state = states.FileBrowserState()
 
 PURGE_QUEUE_SIZE = 4
+# Output formats the EXIF metadata can be transferred to
+METADATA_FORMATS = {"JPEG", "WEBP", "AVIF"}
 image_purge_queue = []
 
 # Seconds after which a loaded image is shown even if compositing hasn't finished
@@ -137,6 +139,7 @@ class DARKROOM_OT_load_image_from_path(bpy.types.Operator):
 
         # Assign the tree to the scene's compositing node group
         scene.compositing_node_group = tree
+        output.sync_file_output(scene)
 
         # Check if image is already loaded by checking the filepath
         image = bpy.data.images.get(filename)
@@ -277,6 +280,7 @@ class DARKROOM_OT_reset_graph(bpy.types.Operator):
 
         # Assign the new tree to the scene
         scene.compositing_node_group = new_tree
+        output.sync_file_output(scene)
 
         return {"FINISHED"}
 
@@ -306,42 +310,49 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
             self.report({"ERROR"}, "Required nodes not found in compositor")
             return {"CANCELLED"}
 
+        if not darkroom.use_sdr_output and not darkroom.use_hdr_output:
+            self.report({"ERROR"}, "Both SDR and HDR outputs are disabled")
+            return {"CANCELLED"}
+
         output_node.directory = darkroom.output_directory
 
         input_filename = os.path.splitext(image_node.image.name)[0]
-        output_filename = f"{input_filename}"
-        output_node.file_name = output_filename
+        output_node.file_name = input_filename
 
-        bpy.ops.render.render()
+        # Re-apply the panel's output settings, in case the graph was edited
+        for warning in output.sync_file_output(context.scene):
+            self.report({"WARNING"}, warning)
 
-        # After rendering, transfer metadata using OpenImageIO
+        with output.disabled_outputs_unlinked(context.scene):
+            bpy.ops.render.render()
+
+        # After rendering, transfer metadata from the original image using OpenImageIO
         source_path = bpy.path.abspath(image_node.image.filepath_raw)
-        file_format = output_node.format.file_format
+        items = output.output_items(output_node)
+        for kind, (enabled, _) in output.output_settings(context.scene).items():
+            item = items.get(kind)
+            if enabled and item is not None:
+                self.transfer_metadata(source_path, output_node, item)
 
-        format_to_ext = {
-            "JPEG": ".jpg",
-            "WEBP": ".webp",
-            "AVIF": ".avif",
-        }
-        output_ext = format_to_ext.get(file_format)
+        return {"FINISHED"}
 
-        if not output_ext:
+    def transfer_metadata(self, source_path, output_node, item):
+        file_format = item.format.file_format
+        if file_format not in METADATA_FORMATS:
             self.report(
                 {"WARNING"},
-                f"Unsupported output format for metadata transfer: {file_format}. Image is rendered but will not contain EXIF metadata.",
+                f"Unsupported output format for metadata transfer: {file_format}. "
+                f"'{item.name}' is rendered but will not contain EXIF metadata.",
             )
-            return {"FINISHED"}
+            return
 
-        output_path = os.path.join(
-            darkroom.output_directory, f"{output_filename}{output_ext}"
-        )
-
-        if not os.path.exists(output_path):
+        output_path = output.item_output_path(output_node, item)
+        if not output_path or not os.path.exists(output_path):
             self.report(
                 {"WARNING"},
                 f"Could not find rendered image: {output_path}. Will not be able to transfer metadata.",
             )
-            return {"FINISHED"}
+            return
 
         # Attempt to transfer EXIF metadata from original image
         try:
@@ -362,9 +373,6 @@ class DARKROOM_OT_render_image(bpy.types.Operator):
                 {"WARNING"},
                 f"Failed to transfer metadata using OpenImageIO:{e}",
             )
-            return {"FINISHED"}
-
-        return {"FINISHED"}
 
 
 class DARKROOM_OT_toggle_file_browser(bpy.types.Operator):
