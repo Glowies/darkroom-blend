@@ -33,6 +33,7 @@ lint = "ruff check src tools"
 format = "ruff format src tools"
 raw-to-exr = "python tools/raw-to-ap0-exr.py"
 copy-metadata = "python tools/copy-metadata.py"
+merge-gainmap = "python tools/merge-gainmap.py"
 
 [tool.ruff]
 # Same as Black.
